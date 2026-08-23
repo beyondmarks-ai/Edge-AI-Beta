@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible Edge AI defect using synthetic data only.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include student data, biometric images, tokens, passwords, API keys or private camera URLs. Security issues belong in a private Security Advisory."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Android version, device model and Edge AI revision.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      render: shell

@@ -1,0 +1,484 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Edge AI classroom attendance and face-timeline backend
+
+Parameters:
+  CodeS3Bucket:
+    Type: String
+  CodeS3Key:
+    Type: String
+  RekognitionCollectionId:
+    Type: String
+  AssistantUrl:
+    Type: String
+    Default: ''
+  AssistantSharedSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+  GeminiApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+  FaceMatchThreshold:
+    Type: Number
+    Default: 95
+    MinValue: 80
+    MaxValue: 100
+
+Resources:
+  EdgeAiDocumentBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT]
+            AllowedOrigins: ['*']
+            MaxAge: 600
+      Tags:
+        - Key: Application
+          Value: EdgeAI
+
+  EdgeAiTextractTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Tags:
+        - Key: Application
+          Value: EdgeAI
+
+  EdgeAiTextractRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: textract.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PublishTextractCompletion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref EdgeAiTextractTopic
+
+  EdgeAiTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Application
+          Value: EdgeAI
+
+  EdgeAiUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: edge-ai-users
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: OPTIONAL
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      UserPoolTags:
+        Application: EdgeAI
+
+  EdgeAiAdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admins
+      Description: Edge AI educators and administrators
+      Precedence: 0
+      UserPoolId: !Ref EdgeAiUserPool
+
+  EdgeAiUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: edge-ai-flutter
+      UserPoolId: !Ref EdgeAiUserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  EdgeAiLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub edge-ai-lambda-${AWS::Region}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: EdgeAiDataAndVision
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt EdgeAiTable.Arn
+                  - !Sub ${EdgeAiTable.Arn}/index/*
+              - Effect: Allow
+                Action:
+                  - rekognition:AssociateFaces
+                  - rekognition:CreateUser
+                  - rekognition:DetectFaces
+                  - rekognition:IndexFaces
+                  - rekognition:SearchUsersByImage
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${EdgeAiDocumentBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - textract:StartDocumentTextDetection
+                  - textract:GetDocumentTextDetection
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt EdgeAiTextractRole.Arn
+
+  EdgeAiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: edge-ai-api
+      Runtime: nodejs22.x
+      Handler: src/handler.handler
+      Architectures:
+        - x86_64
+      MemorySize: 1536
+      Timeout: 300
+      Role: !GetAtt EdgeAiLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref CodeS3Bucket
+        S3Key: !Ref CodeS3Key
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref EdgeAiTable
+          REKOGNITION_COLLECTION_ID: !Ref RekognitionCollectionId
+          FACE_MATCH_THRESHOLD: !Ref FaceMatchThreshold
+          LEAVE_AFTER_SECONDS: '180'
+          ASSISTANT_URL: !Ref AssistantUrl
+          ASSISTANT_SHARED_SECRET: !Ref AssistantSharedSecret
+          GEMINI_API_KEY: !Ref GeminiApiKey
+          GEMINI_MODEL: gemini-3.6-flash
+          VISUAL_ANALYSIS_COOLDOWN_SECONDS: '120'
+          DOCUMENT_BUCKET: !Ref EdgeAiDocumentBucket
+          TEXTRACT_TOPIC_ARN: !Ref EdgeAiTextractTopic
+          TEXTRACT_ROLE_ARN: !GetAtt EdgeAiTextractRole.Arn
+          GEMINI_EMBEDDING_MODEL: gemini-embedding-001
+      TracingConfig:
+        Mode: Active
+      Tags:
+        - Key: Application
+          Value: EdgeAI
+
+  EdgeAiApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: edge-ai-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+        MaxAge: 300
+
+  EdgeAiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt EdgeAiFunction.Arn
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 29000
+
+  EdgeAiTextractInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EdgeAiFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref EdgeAiTextractTopic
+
+  EdgeAiTextractSubscription:
+    Type: AWS::SNS::Subscription
+    DependsOn: EdgeAiTextractInvokePermission
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt EdgeAiFunction.Arn
+      TopicArn: !Ref EdgeAiTextractTopic
+
+  EdgeAiAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizerType: JWT
+      Name: edge-ai-cognito
+      IdentitySource:
+        - $request.header.Authorization
+      JwtConfiguration:
+        Audience:
+          - !Ref EdgeAiUserPoolClient
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${EdgeAiUserPool}
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      RouteKey: GET /health
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  StudentsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /students
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  MeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /me
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  MyAttendanceRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /me/attendance
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  MyFaceCheckRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /me/face-check
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  MyEnrollRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /me/enroll
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  EnrollRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /students/enroll
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  ScanRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /frames/scan
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  DashboardRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /sessions/{sessionId}/dashboard
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  TimelineRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /students/{studentId}/timeline
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  AssistantRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /assistant
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  DocumentsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /documents
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  DocumentUploadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /documents/upload
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  DocumentIngestRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: POST /documents/{documentId}/ingest
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  AssistantChatsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /assistant/chats
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  AssistantChatRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      AuthorizationType: JWT
+      AuthorizerId: !Ref EdgeAiAuthorizer
+      RouteKey: GET /assistant/chats/{conversationId}
+      Target: !Sub integrations/${EdgeAiIntegration}
+
+  EdgeAiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref EdgeAiApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 30
+        ThrottlingRateLimit: 15
+
+  EdgeAiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EdgeAiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${EdgeAiApi}/*
+
+Outputs:
+  ApiUrl:
+    Value: !GetAtt EdgeAiApi.ApiEndpoint
+  UserPoolId:
+    Value: !Ref EdgeAiUserPool
+  UserPoolClientId:
+    Value: !Ref EdgeAiUserPoolClient
+  AdminGroupName:
+    Value: !Ref EdgeAiAdminGroup
+  TableName:
+    Value: !Ref EdgeAiTable
+  DocumentBucketName:
+    Value: !Ref EdgeAiDocumentBucket
+  RekognitionCollectionId:
+    Value: !Ref RekognitionCollectionId
