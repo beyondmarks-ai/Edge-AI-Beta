@@ -2,7 +2,7 @@
   <img src="assets/branding/edge_ai_logo.png" alt="Edge AI logo" width="190" />
 </p>
 
-<h1 align="center">Edge AI</h1>
+<h1 align="center">Edge AI Beta</h1>
 
 <p align="center">
   Consent-based classroom attendance, movement intelligence, RTSP monitoring,<br />
