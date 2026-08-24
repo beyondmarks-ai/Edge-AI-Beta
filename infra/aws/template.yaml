@@ -170,7 +170,6 @@ Resources:
   EdgeAiLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub edge-ai-lambda-${AWS::Region}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -220,7 +219,6 @@ Resources:
   EdgeAiFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: edge-ai-api
       Runtime: nodejs22.x
       Handler: src/handler.handler
       Architectures:

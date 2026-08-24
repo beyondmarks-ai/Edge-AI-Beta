@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "https://example.execute-api.us-east-1.amazonaws.com",
+  "awsRegion": "us-east-1",
+  "cognitoUserPoolId": "us-east-1_Example123",
+  "cognitoClientId": "1234567890abcdefghijklmnop"
+}

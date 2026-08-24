@@ -33,6 +33,7 @@ migrate_working_dir/
 /build/
 .edge-ai-cloud.json
 .edge-ai-google.json
+edge-ai-connection.json
 backend/.deploy-build/
 backend/edge-ai-backend.zip
 backend/node_modules/

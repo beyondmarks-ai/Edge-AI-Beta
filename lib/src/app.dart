@@ -13,9 +13,15 @@ import 'services/auth_service.dart';
 import 'services/edge_repository.dart';
 
 class EdgeAiApp extends StatefulWidget {
-  const EdgeAiApp({super.key, required this.config, required this.auth});
+  const EdgeAiApp({
+    super.key,
+    required this.config,
+    required this.auth,
+    this.onResetConfiguration,
+  });
   final EdgeAiConfig config;
   final AuthService auth;
+  final Future<void> Function()? onResetConfiguration;
 
   @override
   State<EdgeAiApp> createState() => _EdgeAiAppState();
@@ -80,7 +86,11 @@ class _EdgeAiAppState extends State<EdgeAiApp> {
       home: _signedIn == null
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : !_signedIn!
-          ? LoginScreen(auth: widget.auth, onSignedIn: signedIn)
+          ? LoginScreen(
+              auth: widget.auth,
+              onSignedIn: signedIn,
+              onResetConfiguration: widget.onResetConfiguration,
+            )
           : FutureBuilder<UserProfile>(
               future: _profile,
               builder: (context, snapshot) {

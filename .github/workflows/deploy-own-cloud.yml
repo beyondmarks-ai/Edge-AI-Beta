@@ -1,0 +1,102 @@
+name: Deploy your own Edge AI
+
+on:
+  workflow_dispatch:
+    inputs:
+      admin_email:
+        description: Initial administrator email
+        required: true
+        type: string
+      aws_region:
+        description: AWS region
+        required: true
+        default: us-east-1
+        type: string
+      stack_name:
+        description: CloudFormation stack name
+        required: true
+        default: edge-ai
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-and-package:
+    runs-on: windows-latest
+    env:
+      EDGE_AI_ADMIN_PASSWORD: ${{ secrets.EDGE_AI_ADMIN_PASSWORD }}
+      EDGE_AI_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'
+          channel: stable
+          cache: true
+
+      - name: Validate required secrets
+        shell: pwsh
+        run: |
+          if (-not $env:EDGE_AI_ADMIN_PASSWORD) { throw 'Missing EDGE_AI_ADMIN_PASSWORD repository secret.' }
+          if (-not $env:EDGE_AI_GEMINI_API_KEY) { throw 'Missing GEMINI_API_KEY repository secret.' }
+
+      - name: Deploy private AWS backend
+        shell: pwsh
+        run: |
+          $adminPassword = ConvertTo-SecureString $env:EDGE_AI_ADMIN_PASSWORD -AsPlainText -Force
+          $geminiKey = ConvertTo-SecureString $env:EDGE_AI_GEMINI_API_KEY -AsPlainText -Force
+          .\tools\deploy_aws.ps1 `
+            -AdminEmail '${{ inputs.admin_email }}' `
+            -AdminPassword $adminPassword `
+            -GeminiApiKey $geminiKey `
+            -Region '${{ inputs.aws_region }}' `
+            -StackName '${{ inputs.stack_name }}'
+
+      - name: Create public connection file
+        shell: pwsh
+        run: |
+          $privateConfig = Get-Content -Raw -LiteralPath .edge-ai-cloud.json | ConvertFrom-Json
+          [ordered]@{
+            apiBaseUrl = $privateConfig.apiUrl
+            awsRegion = $privateConfig.awsRegion
+            cognitoUserPoolId = $privateConfig.cognitoUserPoolId
+            cognitoClientId = $privateConfig.cognitoClientId
+          } | ConvertTo-Json | Set-Content -LiteralPath edge-ai-connection.json -Encoding utf8
+
+      - name: Build portable Android APK
+        shell: pwsh
+        run: |
+          flutter pub get
+          .\tools\run_edge_ai.ps1 -Action build-apk -Release -Portable
+
+      - name: Upload portable app and connection file
+        uses: actions/upload-artifact@v4
+        with:
+          name: Edge-AI-${{ inputs.stack_name }}
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          path: |
+            dist/Edge-AI-portable.apk
+            edge-ai-connection.json
+
+      - name: Deployment summary
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_STEP_SUMMARY '## Edge AI deployment complete'
+          Add-Content $env:GITHUB_STEP_SUMMARY 'Download the workflow artifact. Install `Edge-AI-portable.apk`, open it, and import `edge-ai-connection.json`.'
+          Add-Content $env:GITHUB_STEP_SUMMARY 'The connection file contains public service identifiers only. Gemini and AWS secret keys remain outside the APK.'

@@ -9,6 +9,8 @@ Edge AI has two trusted application tiers:
 
 The Android application never receives AWS credentials or a Gemini API key. It calls only JWT-protected API Gateway routes and time-limited S3 upload URLs.
 
+Portable builds contain no tenant configuration. On first launch, the owner imports `edge-ai-connection.json`, which contains only the API URL, AWS region, Cognito User Pool ID and public App Client ID. These values are validated and stored locally. Changing deployments clears the stored connection and closes the app so Amplify can initialize the new Cognito tenant cleanly on restart.
+
 ## Components
 
 | Component | Purpose | Sensitive data handled |

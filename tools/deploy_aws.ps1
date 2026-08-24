@@ -26,7 +26,7 @@ $env:https_proxy = ''
 $identity = aws sts get-caller-identity --output json | ConvertFrom-Json
 $accountId = $identity.Account
 $bucket = "edge-ai-deploy-$accountId-$Region"
-$collection = "edge-ai-$accountId"
+$collection = "$StackName-$accountId"
 $codeKey = "backend/$((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss'))-edge-ai.zip"
 
 if (Test-Path -LiteralPath $build) {

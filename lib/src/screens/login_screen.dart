@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.auth, required this.onSignedIn});
+  const LoginScreen({
+    super.key,
+    required this.auth,
+    required this.onSignedIn,
+    this.onResetConfiguration,
+  });
   final AuthService auth;
   final VoidCallback onSignedIn;
+  final Future<void> Function()? onResetConfiguration;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -182,6 +188,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? null
                       : () => widget.auth.resendConfirmationCode(username.text),
                   child: const Text('Resend code'),
+                ),
+              if (!awaitingCode && widget.onResetConfiguration != null)
+                TextButton.icon(
+                  onPressed: loading ? null : widget.onResetConfiguration,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Change cloud deployment'),
                 ),
             ],
           ),

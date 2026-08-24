@@ -1,11 +1,32 @@
 import 'package:edge_alpha/src/app.dart';
 import 'package:edge_alpha/src/models/edge_models.dart';
 import 'package:edge_alpha/src/screens/student_home_screen.dart';
+import 'package:edge_alpha/src/screens/cloud_setup_screen.dart';
 import 'package:edge_alpha/src/services/edge_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('portable build requests only public cloud identifiers', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CloudSetupScreen(
+        loading: false,
+        onConfigure: (_) async {},
+        onDemo: () {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect Edge AI'), findsOneWidget);
+    expect(find.text('Import edge-ai-connection.json'), findsOneWidget);
+    expect(find.text('API base URL'), findsOneWidget);
+    expect(find.text('Cognito User Pool ID'), findsOneWidget);
+    expect(find.textContaining('API keys and AWS credentials'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Gemini API key'), findsNothing);
+  });
+
   testWidgets('shows Edge AI dashboard in demo mode', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

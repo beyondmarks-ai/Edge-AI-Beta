@@ -41,6 +41,7 @@ No custom machine-learning model is trained. AWS Rekognition manages face vector
 | PDF RAG | Private PDF upload, asynchronous indexing, semantic retrieval and concise answers with filename/page citations |
 | Student portal | Students can see only their own profile, status and attendance timeline |
 | Infrastructure | Repeatable AWS CloudFormation and PowerShell deployment from AWS CLI |
+| Portable setup | First-run connection-file import and GitHub Actions deployment for recipients who do not use local CLIs |
 
 ## How it works
 
@@ -124,6 +125,57 @@ edge_alpha/
 - AWS CLI authenticated to the target AWS account
 - Google Cloud CLI authenticated to a Google Cloud project
 - An Android device with USB debugging enabled, or an emulator
+
+## No-CLI deployment for another owner
+
+Recipients do not need Flutter, Node.js, AWS CLI or Google Cloud CLI on their computer. They need a GitHub account, an AWS account and their own Gemini API key.
+
+### 1. Fork the repository
+
+Fork this repository into the recipient's GitHub account or organization.
+
+### 2. Add private GitHub Actions secrets
+
+Open **Settings -> Secrets and variables -> Actions** in the fork and create:
+
+| Secret | Value |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | AWS deployment identity access-key ID |
+| `AWS_SECRET_ACCESS_KEY` | Matching AWS secret access key |
+| `GEMINI_API_KEY` | Recipient's Gemini API key, restricted to the Generative Language API |
+| `EDGE_AI_ADMIN_PASSWORD` | Strong initial Cognito administrator password |
+
+The AWS identity must be permitted to deploy the CloudFormation resources documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), including IAM roles. Prefer a temporary, dedicated deployment identity and disable or rotate its keys after deployment.
+
+### 3. Run the workflow
+
+1. Open **Actions -> Deploy your own Edge AI**.
+2. Select **Run workflow**.
+3. Enter the administrator email, AWS region and stack name.
+4. Wait for the `deploy-and-package` job to finish.
+5. Download the workflow artifact from the completed run.
+
+The artifact contains:
+
+- `Edge-AI-portable.apk` - a generic APK with no embedded cloud tenant or API key;
+- `edge-ai-connection.json` - public API Gateway and Cognito connection identifiers.
+
+The workflow APK is a beta/sideload build signed with the repository's development signing configuration. Configure a private Android release keystore before Play Store or managed-enterprise distribution.
+
+### 4. Connect the portable application
+
+1. Install `Edge-AI-portable.apk`.
+2. Open Edge AI and choose **Import edge-ai-connection.json**.
+3. Select the downloaded connection file and press **Save and connect**.
+4. Sign in with the workflow administrator email/password, then rotate the initial password.
+
+AWS credentials and the Gemini key are used only by the GitHub runner during deployment and by the private Lambda configuration afterward. They are never written to the connection file or embedded in the APK.
+
+To build a portable APK locally without binding it to the current deployment:
+
+```powershell
+.\tools\run_edge_ai.ps1 -Action build-apk -Release -Portable
+```
 
 ## Deploy from a fresh clone
 

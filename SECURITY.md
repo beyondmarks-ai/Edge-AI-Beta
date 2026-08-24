@@ -23,6 +23,8 @@ The following must never be committed:
 - RTSP usernames/passwords;
 - real student images, exported face data, PDFs or attendance records.
 
+The portable app accepts only public connection identifiers. Never add Gemini keys, AWS keys, Cognito passwords or signing keys to `edge-ai-connection.json` or to an in-app settings field.
+
 The repository `.gitignore` excludes the known local secret and build paths. Run a secret scanner before making the repository public and rotate any credential that has ever entered Git history.
 
 ## Deployment expectations
