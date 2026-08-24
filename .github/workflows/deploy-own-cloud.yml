@@ -28,15 +28,15 @@ jobs:
       EDGE_AI_ADMIN_PASSWORD: ${{ secrets.EDGE_AI_ADMIN_PASSWORD }}
       EDGE_AI_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -84,7 +84,7 @@ jobs:
           .\tools\run_edge_ai.ps1 -Action build-apk -Release -Portable
 
       - name: Upload portable app and connection file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Edge-AI-${{ inputs.stack_name }}
           if-no-files-found: error
