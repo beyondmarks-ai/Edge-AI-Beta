@@ -157,21 +157,20 @@ The AWS identity must be permitted to deploy the CloudFormation resources docume
 
 The artifact contains:
 
-- `Edge-AI-portable.apk` - a generic APK with no embedded cloud tenant or API key;
-- `edge-ai-connection.json` - public API Gateway and Cognito connection identifiers.
+- `Edge-AI.apk` - a ready-to-use APK already connected to the recipient's deployment;
+- `edge-ai-connection.json` - an administrator backup of the public connection identifiers.
 
 The workflow APK is a beta/sideload build signed with the repository's development signing configuration. Configure a private Android release keystore before Play Store or managed-enterprise distribution.
 
-### 4. Connect the portable application
+### 4. Install the application
 
-1. Install `Edge-AI-portable.apk`.
-2. Open Edge AI and choose **Import edge-ai-connection.json**.
-3. Select the downloaded connection file and press **Save and connect**.
-4. Sign in with the workflow administrator email/password, then rotate the initial password.
+1. Install `Edge-AI.apk`.
+2. Open Edge AI. It connects automatically and goes directly to sign-in.
+3. Sign in with the workflow administrator email/password, then rotate the initial password.
 
-AWS credentials and the Gemini key are used only by the GitHub runner during deployment and by the private Lambda configuration afterward. They are never written to the connection file or embedded in the APK.
+The APK embeds only the API Gateway URL, AWS region and public Cognito application identifiers. AWS credentials and the Gemini key are used only by the GitHub runner during deployment and by the private Lambda configuration afterward. They are never written to the connection file or embedded in the APK.
 
-To build a portable APK locally without binding it to the current deployment:
+For advanced use, a generic portable APK can still be built locally. Portable builds show the connection import screen because they are not bound to any deployment:
 
 ```powershell
 .\tools\run_edge_ai.ps1 -Action build-apk -Release -Portable

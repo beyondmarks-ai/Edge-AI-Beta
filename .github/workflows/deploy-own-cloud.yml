@@ -77,13 +77,13 @@ jobs:
             cognitoClientId = $privateConfig.cognitoClientId
           } | ConvertTo-Json | Set-Content -LiteralPath edge-ai-connection.json -Encoding utf8
 
-      - name: Build portable Android APK
+      - name: Build tenant-configured Android APK
         shell: pwsh
         run: |
           flutter pub get
-          .\tools\run_edge_ai.ps1 -Action build-apk -Release -Portable
+          .\tools\run_edge_ai.ps1 -Action build-apk -Release
 
-      - name: Upload portable app and connection file
+      - name: Upload ready-to-use app
         uses: actions/upload-artifact@v7
         with:
           name: Edge-AI-${{ inputs.stack_name }}
@@ -91,12 +91,12 @@ jobs:
           retention-days: 14
           compression-level: 0
           path: |
-            dist/Edge-AI-portable.apk
+            dist/Edge-AI.apk
             edge-ai-connection.json
 
       - name: Deployment summary
         shell: pwsh
         run: |
           Add-Content $env:GITHUB_STEP_SUMMARY '## Edge AI deployment complete'
-          Add-Content $env:GITHUB_STEP_SUMMARY 'Download the workflow artifact. Install `Edge-AI-portable.apk`, open it, and import `edge-ai-connection.json`.'
-          Add-Content $env:GITHUB_STEP_SUMMARY 'The connection file contains public service identifiers only. Gemini and AWS secret keys remain outside the APK.'
+          Add-Content $env:GITHUB_STEP_SUMMARY 'Download the workflow artifact and install `Edge-AI.apk`. It is already connected to this deployment and opens directly to sign-in.'
+          Add-Content $env:GITHUB_STEP_SUMMARY 'Only public service identifiers are embedded. Gemini and AWS secret keys remain outside the APK. The connection JSON is included only as an administrator backup.'

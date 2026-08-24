@@ -43,7 +43,13 @@ try {
     & $flutter build apk $mode @defines
     if ($LASTEXITCODE -eq 0) {
       $sourceName = if ($Release) { 'app-release.apk' } else { 'app-debug.apk' }
-      $destinationName = if ($Portable) { 'Edge-AI-portable.apk' } else { 'Edge-AI-debug.apk' }
+      $destinationName = if ($Portable) {
+        'Edge-AI-portable.apk'
+      } elseif ($Release) {
+        'Edge-AI.apk'
+      } else {
+        'Edge-AI-debug.apk'
+      }
       $dist = Join-Path $workspace 'dist'
       New-Item -ItemType Directory -Path $dist -Force | Out-Null
       Copy-Item -LiteralPath (Join-Path $workspace "build/app/outputs/flutter-apk/$sourceName") `

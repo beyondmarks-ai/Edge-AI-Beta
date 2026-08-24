@@ -7,11 +7,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final stored = await EdgeAiConfig.loadStored();
   final environment = EdgeAiConfig.fromEnvironment().normalized();
-  final initial = stored ?? environment;
+  // A tenant-configured build always uses the public connection identifiers
+  // embedded at build time. Stored configuration is only for portable builds.
+  final initial = environment.cloudConfigured
+      ? environment
+      : stored ?? environment;
   runApp(
     EdgeAiBootstrap(
       initialConfig: initial,
-      configurationCanChange: stored != null || !environment.cloudConfigured,
+      configurationCanChange: !environment.cloudConfigured && stored != null,
     ),
   );
 }
