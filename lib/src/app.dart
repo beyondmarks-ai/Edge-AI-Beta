@@ -5,6 +5,7 @@ import 'models/edge_models.dart';
 import 'screens/assistant_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/offline_chat_screen.dart';
 import 'screens/rtsp_scanner_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/students_screen.dart';
@@ -38,14 +39,19 @@ class _EdgeAiAppState extends State<EdgeAiApp> {
     _repository = widget.config.cloudConfigured
         ? CloudEdgeRepository(widget.config, widget.auth)
         : DemoEdgeRepository();
-    widget.auth.isSignedIn().then((value) {
-      if (mounted) {
-        setState(() {
-          _signedIn = value;
-          if (value) _profile = _repository.me();
+    widget.auth
+        .isSignedIn()
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              _signedIn = value;
+              if (value) _profile = _repository.me();
+            });
+          }
+        })
+        .catchError((Object _) {
+          if (mounted) setState(() => _signedIn = false);
         });
-      }
-    });
   }
 
   void signedIn() => setState(() {
@@ -84,7 +90,7 @@ class _EdgeAiAppState extends State<EdgeAiApp> {
         useMaterial3: true,
       ),
       home: _signedIn == null
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const _AccountStatusScreen()
           : !_signedIn!
           ? LoginScreen(
               auth: widget.auth,
@@ -95,16 +101,12 @@ class _EdgeAiAppState extends State<EdgeAiApp> {
               future: _profile,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Scaffold(
-                    body: Center(
-                      child: Text('Could not load account: ${snapshot.error}'),
-                    ),
+                  return _AccountStatusScreen(
+                    error: 'Could not load account: ${snapshot.error}',
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
+                  return const _AccountStatusScreen();
                 }
                 return snapshot.data!.isAdmin
                     ? EdgeShell(
@@ -124,6 +126,31 @@ class _EdgeAiAppState extends State<EdgeAiApp> {
             ),
     );
   }
+}
+
+class _AccountStatusScreen extends StatelessWidget {
+  const _AccountStatusScreen({this.error});
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (error == null)
+              const CircularProgressIndicator()
+            else
+              Text(error!),
+            const SizedBox(height: 24),
+            const OfflineChatButton(),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class EdgeShell extends StatefulWidget {
@@ -170,7 +197,11 @@ class _EdgeShellState extends State<EdgeShell> {
           lastDetected = student;
         }),
       ),
-      AssistantScreen(repository: widget.repository, sessionId: sessionId),
+      AssistantScreen(
+        repository: widget.repository,
+        sessionId: sessionId,
+        active: _index == 4,
+      ),
     ];
     return Scaffold(
       appBar: AppBar(

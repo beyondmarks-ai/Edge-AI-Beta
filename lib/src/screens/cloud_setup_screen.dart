@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../config/edge_ai_config.dart';
+import 'offline_chat_screen.dart';
 
 class CloudSetupScreen extends StatefulWidget {
   const CloudSetupScreen({
@@ -119,6 +120,7 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
+                    const OfflineChatButton(),
                     OutlinedButton.icon(
                       onPressed: widget.loading ? null : importConnection,
                       icon: const Icon(Icons.file_open_outlined),

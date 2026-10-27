@@ -5,10 +5,64 @@ import 'package:flutter/material.dart';
 
 import '../models/edge_models.dart';
 import '../services/edge_repository.dart';
+import 'offline_chat_screen.dart';
 
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({
     super.key,
+    required this.repository,
+    required this.sessionId,
+    this.active = true,
+  });
+  final EdgeRepository repository;
+  final String sessionId;
+  final bool active;
+
+  @override
+  State<AssistantScreen> createState() => _AssistantModeState();
+}
+
+class _AssistantModeState extends State<AssistantScreen> {
+  bool offline = true;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(
+              value: true,
+              icon: Icon(Icons.offline_bolt_outlined),
+              label: Text('Offline'),
+            ),
+            ButtonSegment(
+              value: false,
+              icon: Icon(Icons.cloud_outlined),
+              label: Text('Cloud'),
+            ),
+          ],
+          selected: {offline},
+          onSelectionChanged: (value) => setState(() => offline = value.first),
+        ),
+      ),
+      Expanded(
+        child: offline
+            ? widget.active
+                  ? const OfflineChatScreen()
+                  : const SizedBox.shrink()
+            : _CloudAssistantScreen(
+                repository: widget.repository,
+                sessionId: widget.sessionId,
+              ),
+      ),
+    ],
+  );
+}
+
+class _CloudAssistantScreen extends StatefulWidget {
+  const _CloudAssistantScreen({
     required this.repository,
     required this.sessionId,
   });
@@ -16,10 +70,10 @@ class AssistantScreen extends StatefulWidget {
   final String sessionId;
 
   @override
-  State<AssistantScreen> createState() => _AssistantScreenState();
+  State<_CloudAssistantScreen> createState() => _AssistantScreenState();
 }
 
-class _AssistantScreenState extends State<AssistantScreen> {
+class _AssistantScreenState extends State<_CloudAssistantScreen> {
   static const suggestions = [
     'What is Rakesh wearing?',
     'Where is Rakesh now?',

@@ -40,7 +40,7 @@ Push-Location $workspace
 try {
   if ($Action -eq 'build-apk') {
     $mode = if ($Release) { '--release' } else { '--debug' }
-    & $flutter build apk $mode @defines
+    & $flutter build apk $mode --target-platform 'android-arm64,android-x64' @defines
     if ($LASTEXITCODE -eq 0) {
       $sourceName = if ($Release) { 'app-release.apk' } else { 'app-debug.apk' }
       $destinationName = if ($Portable) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import 'offline_chat_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -77,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
     body: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -100,6 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
+              const OfflineChatButton(),
               if (!awaitingCode)
                 SegmentedButton<bool>(
                   segments: const [

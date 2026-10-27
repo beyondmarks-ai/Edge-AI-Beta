@@ -44,6 +44,16 @@ dependencies:
   flutter_vlc_player: ^7.4.4
   flutter_secure_storage: ^10.3.1
   file_picker: ^12.0.0
+  llamadart: 0.16.4
+  path_provider: 2.1.5
+  crypto: 3.0.7
+
+# Bundle only llama.cpp; the app does not use LiteRT or image generation.
+hooks:
+  user_defines:
+    llamadart:
+      llamadart_native_runtimes: llama_cpp
+      llamadart_native_backends: cpu
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +79,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/edge_ai_logo.png
+    - assets/licenses/qwen2.5-LICENSE.txt
 
 flutter_launcher_icons:
   android: true

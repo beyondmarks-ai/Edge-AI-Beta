@@ -23,6 +23,15 @@ android {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.beyondmarks.edgeai"
         minSdk = 29
+        ndk {
+            // llama.cpp runtime bundles are available for 64-bit Android.
+            val targets = (project.findProperty("target-platform") as? String)
+                ?.split(",") ?: listOf("android-arm64", "android-x64")
+            abiFilters.clear()
+            if ("android-arm64" in targets) abiFilters += "arm64-v8a"
+            if ("android-x64" in targets) abiFilters += "x86_64"
+            require(abiFilters.isNotEmpty()) { "Offline chat requires a 64-bit Android target." }
+        }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         targetSdk = flutter.targetSdkVersion

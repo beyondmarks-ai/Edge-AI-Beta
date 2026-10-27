@@ -37,6 +37,7 @@ No custom machine-learning model is trained. AWS Rekognition manages face vector
 | RTSP monitoring | Editable RTSP URL and credentials, secure local credential storage and three-second frame sampling |
 | Visual context | Restricted clothing, carried-object, posture and scene-position descriptions for already matched students |
 | AI assistant | Grounded Gemini answers from current attendance and the newest authorized visual observations |
+| Offline chat | Qwen2.5 1.5B on the device, one-time resumable model download, no sign-in required, optional cloud mode |
 | Chat memory | Private administrator-scoped conversations, New chat and saved history; latest 20 messages support follow-up questions |
 | PDF RAG | Private PDF upload, asynchronous indexing, semantic retrieval and concise answers with filename/page citations |
 | Student portal | Students can see only their own profile, status and attendance timeline |
@@ -229,6 +230,16 @@ Both local configuration files are ignored by Git. Rotate the initial administra
 The debug APK is created at `build/app/outputs/flutter-apk/app-debug.apk`. Release builds require your own Android signing configuration and must never commit the keystore or `key.properties`.
 
 ## Using the application
+
+### Offline chat
+
+Select **Open offline chat** before sign-in, or **AI → Offline**. Download the
+1.12 GB model once over Wi-Fi; after verification, general chat works without
+internet. Offline messages stay in memory on the device. Select **AI → Cloud**
+for live attendance, saved cloud conversations and PDF questions.
+
+See [docs/OFFLINE_CHAT.md](docs/OFFLINE_CHAT.md) for device requirements, model
+licensing and physical-device validation steps.
 
 ### Student enrollment
 
